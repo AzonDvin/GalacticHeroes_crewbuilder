@@ -1,0 +1,999 @@
+<title>Galactic Heroes — Crew Builder</title>
+<style>
+  :root{
+    --bg:#f3f1ea; --surface:#ffffff; --surface-2:#eaeee7; --border:#d6d2c4;
+    --ink:#1b241f; --ink-soft:#5c655e; --ink-faint:#8b9389;
+    --accent:#146b74; --accent-ink:#ffffff; --accent-soft:#dbeeef;
+    --good:#2f7d4f; --good-soft:#e3f2e7;
+    --warn:#a9721f; --warn-soft:#faedd6;
+    --danger:#b23327; --danger-soft:#f8e2df;
+    --radius:3px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1615; --surface:#161f1d; --surface-2:#1b2624; --border:#2b3733;
+      --ink:#e7ece7; --ink-soft:#9db0aa; --ink-faint:#6c7c76;
+      --accent:#59d6cd; --accent-ink:#06201e; --accent-soft:#123330;
+      --good:#5fcf8a; --good-soft:#123322;
+      --warn:#e2b158; --warn-soft:#332c17;
+      --danger:#ea8b8b; --danger-soft:#3a1d1d;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1615; --surface:#161f1d; --surface-2:#1b2624; --border:#2b3733;
+    --ink:#e7ece7; --ink-soft:#9db0aa; --ink-faint:#6c7c76;
+    --accent:#59d6cd; --accent-ink:#06201e; --accent-soft:#123330;
+    --good:#5fcf8a; --good-soft:#123322;
+    --warn:#e2b158; --warn-soft:#332c17;
+    --danger:#ea8b8b; --danger-soft:#3a1d1d;
+  }
+  :root[data-theme="light"]{
+    --bg:#f3f1ea; --surface:#ffffff; --surface-2:#eaeee7; --border:#d6d2c4;
+    --ink:#1b241f; --ink-soft:#5c655e; --ink-faint:#8b9389;
+    --accent:#146b74; --accent-ink:#ffffff; --accent-soft:#dbeeef;
+    --good:#2f7d4f; --good-soft:#e3f2e7;
+    --warn:#a9721f; --warn-soft:#faedd6;
+    --danger:#b23327; --danger-soft:#f8e2df;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size:14px; line-height:1.45;
+  }
+  .mono{ font-family: ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Roboto Mono",monospace; font-variant-numeric: tabular-nums; }
+  .display{
+    font-family:"Bahnschrift","Arial Narrow","Helvetica Neue Condensed Bold","Roboto Condensed",sans-serif;
+    font-stretch:condensed; text-transform:uppercase; letter-spacing:.04em;
+  }
+  button, select, input{ font-family:inherit; font-size:inherit; color:inherit; }
+  h1,h2,h3,h4,p{ margin:0; }
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:10px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .topbar .brand{ display:flex; flex-direction:column; gap:1px; margin-right:6px; }
+  .topbar .brand .eyebrow{ font-size:10px; letter-spacing:.18em; color:var(--ink-faint); }
+  .topbar .brand h1{ font-size:16px; font-weight:800; }
+  .field{ display:flex; flex-direction:column; gap:2px; }
+  .field label{ font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); }
+  .field input[type=text], .field select{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--ink);
+    padding:6px 8px; border-radius:var(--radius); min-width:150px;
+  }
+  .field select option{ background:var(--surface); color:var(--ink); }
+  .spacer{ flex:1; }
+  .btn{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--ink);
+    padding:7px 12px; border-radius:var(--radius); cursor:pointer;
+    font-size:12.5px; letter-spacing:.02em; display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn:hover{ border-color:var(--accent); color:var(--accent); }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .btn.primary:hover{ filter:brightness(1.08); color:var(--accent-ink); }
+  .btn:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+  input[type=file]{ display:none; }
+
+  .helpbar{
+    background:var(--accent-soft); color:var(--ink); border-bottom:1px solid var(--border);
+    padding:8px 16px; font-size:12px; line-height:1.5;
+  }
+  .helpbar b{ color:var(--accent); }
+
+  /* ---------- layout ---------- */
+  .app{
+    display:grid; grid-template-columns: minmax(0,1.15fr) minmax(320px,0.85fr);
+    gap:16px; padding:16px; max-width:1400px; margin:0 auto;
+  }
+  @media (max-width: 940px){ .app{ grid-template-columns: 1fr; } }
+
+  .builder{ display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .preview-col{ position:sticky; top:64px; align-self:start; max-height:calc(100vh - 80px); overflow:auto; }
+
+  /* ---------- model card (builder) ---------- */
+  .model-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .model-card > summary{ list-style:none; cursor:pointer; }
+  .model-card > summary::-webkit-details-marker{ display:none; }
+  .mhead{
+    display:flex; align-items:center; gap:10px; padding:12px 14px;
+    border-bottom:1px solid var(--border); flex-wrap:wrap;
+  }
+  .mhead .role-dot{ width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+  .mhead .role-leader{ background:var(--danger); }
+  .mhead .role-specialist{ background:var(--warn); }
+  .mhead .role-regular{ background:var(--accent); }
+  .mhead .role-label{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); }
+  .mhead input[type=text]{
+    background:transparent; border:none; border-bottom:1px dashed var(--border);
+    font-weight:700; font-size:15px; padding:2px 2px; color:var(--ink); min-width:120px; flex:1;
+  }
+  .mhead input[type=text]:focus{ outline:none; border-bottom-color:var(--accent); }
+  .die-badge{
+    font-size:11px; padding:3px 8px; border:1px solid var(--border); border-radius:20px; color:var(--ink-soft);
+  }
+  .grunt-toggle{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); }
+  .caret{ margin-left:auto; color:var(--ink-faint); transition:transform .15s; }
+  details[open] > summary .caret{ transform:rotate(90deg); }
+
+  .mbody{ padding:12px 14px 16px; display:flex; flex-direction:column; gap:16px; }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;
+  }
+  .panel-title{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); }
+  .count-chip{
+    font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--ink-soft);
+  }
+  .count-chip.ok{ background:var(--good-soft); color:var(--good); border-color:transparent; }
+  .count-chip.warn{ background:var(--warn-soft); color:var(--warn); border-color:transparent; }
+  .count-chip.over{ background:var(--danger-soft); color:var(--danger); border-color:transparent; }
+
+  .extra-row{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:8px; font-size:12px; }
+  .extra-row label{ display:flex; align-items:center; gap:6px; color:var(--ink-soft); }
+  .extra-row select{ background:var(--surface-2); border:1px solid var(--border); color:var(--ink); border-radius:var(--radius); padding:3px 6px; }
+
+  .search{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--ink);
+    padding:6px 8px; border-radius:var(--radius); margin-bottom:8px;
+  }
+  .pick-list{ display:flex; flex-direction:column; gap:1px; max-height:230px; overflow:auto; border:1px solid var(--border); border-radius:var(--radius); }
+  .pick-row{
+    display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:start;
+    padding:6px 8px; background:var(--surface); border-bottom:1px solid var(--border); font-size:12.5px;
+  }
+  .pick-row:last-child{ border-bottom:none; }
+  .pick-row:hover{ background:var(--surface-2); }
+  .pick-row input[type=checkbox]{ margin-top:3px; accent-color:var(--accent); }
+  .pick-row .name{ font-weight:600; }
+  .pick-row .desc{ color:var(--ink-soft); font-size:11.5px; }
+  .pick-row .tag{
+    font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; padding:1px 5px; border-radius:3px;
+    background:var(--surface-2); color:var(--ink-faint); border:1px solid var(--border); white-space:nowrap;
+  }
+  .pick-row .cost{ font-size:11px; color:var(--ink-soft); white-space:nowrap; text-align:right; }
+  .pick-row.disabled{ opacity:.45; }
+  .pick-row.disabled input{ cursor:not-allowed; }
+
+  .neg-block{
+    background:var(--surface-2); border:1px dashed var(--border); border-radius:var(--radius);
+    padding:8px 10px; font-size:12px; display:flex; flex-direction:column; gap:6px;
+    color:var(--ink);
+  }
+  .neg-block label{ color:var(--ink); }
+  .neg-block select{
+    background:var(--surface); color:var(--ink); border:1px solid var(--border);
+    border-radius:var(--radius); padding:6px 8px; width:100%; font-size:12px;
+  }
+  .neg-block select:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .neg-block select option{ background:var(--surface); color:var(--ink); }
+
+  /* ---------- preview / roster sheet ---------- */
+  .sheet{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); }
+  .sheet-head{
+    padding:16px; border-bottom:2px solid var(--accent); display:flex; flex-direction:column; gap:4px;
+  }
+  .sheet-head .eyebrow{ font-size:10px; letter-spacing:.2em; color:var(--ink-faint); }
+  .sheet-head h2{ font-size:22px; font-weight:800; }
+  .sheet-head .ct{ font-size:12px; color:var(--ink-soft); }
+  .sheet-head .ct b{ color:var(--accent); }
+
+  .sheet-cards{ display:flex; flex-direction:column; gap:10px; padding:12px; }
+  .p-card{ border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:var(--radius); background:var(--surface); }
+  .p-card.leader{ border-left-color:var(--danger); }
+  .p-card.specialist{ border-left-color:var(--warn); }
+  .p-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:10px 12px; border-bottom:1px dashed var(--border); }
+  .p-role{ font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); }
+  .p-name{ font-size:15px; font-weight:800; margin:2px 0; }
+  .p-die{ font-size:11px; border:1px solid var(--border); border-radius:20px; padding:2px 8px; color:var(--ink-soft); white-space:nowrap; }
+  .p-body{ padding:8px 12px 12px; display:flex; flex-direction:column; gap:8px; }
+  .p-label{ font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px; }
+  .p-pills{ display:flex; flex-wrap:wrap; gap:4px; }
+  .p-pill{ font-size:11px; padding:2px 7px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; }
+  .p-gear{ list-style:none; margin:0; padding:0; font-size:12px; }
+  .p-gear li{ display:flex; justify-content:space-between; border-bottom:1px dotted var(--border); padding:2px 0; }
+  .p-gear li span:last-child{ color:var(--ink-soft); }
+  .p-empty{ color:var(--ink-faint); font-style:italic; font-size:12px; }
+  .p-tracker{ display:flex; gap:14px; padding-top:6px; border-top:1px solid var(--border); font-size:11px; }
+  .pips{ display:flex; gap:4px; }
+  .pip-box{ width:11px; height:11px; border:1.5px solid var(--danger); }
+  .pip-circle{ width:11px; height:11px; border-radius:50%; border:1.5px solid var(--warn); }
+
+  .totals{
+    margin:0 12px 14px; padding:10px 12px; background:var(--surface-2); border-radius:var(--radius);
+    font-size:12px; display:flex; justify-content:space-between; gap:10px;
+  }
+  .totals b{ color:var(--accent); }
+
+  footer.note{ padding:6px 16px 30px; font-size:11px; color:var(--ink-faint); max-width:1400px; margin:0 auto; }
+
+  /* ---------- fallback export modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,14,12,0.55); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    max-width:720px; width:100%; max-height:85vh; display:flex; flex-direction:column;
+    box-shadow:0 20px 50px rgba(0,0,0,0.4);
+  }
+  .modal-head{ padding:14px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .modal-head h3{ font-size:15px; font-weight:800; }
+  .modal-body{ padding:14px 18px; overflow:auto; display:flex; flex-direction:column; gap:10px; }
+  .modal-body p{ font-size:12.5px; color:var(--ink-soft); line-height:1.5; }
+  .modal-body textarea{
+    width:100%; height:280px; background:var(--surface-2); color:var(--ink); border:1px solid var(--border);
+    border-radius:var(--radius); padding:10px; font-family:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+    font-size:11.5px; resize:vertical;
+  }
+  .modal-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .modal-status{ font-size:11.5px; color:var(--good); min-height:1.4em; }
+
+  @media print{
+    body{ background:#fff; }
+    .topbar, .helpbar, .builder{ display:none !important; }
+    .app{ grid-template-columns:1fr; padding:0; }
+    .preview-col{ position:static; max-height:none; overflow:visible; }
+    .sheet{ border:none; }
+    footer.note{ display:none; }
+  }
+</style>
+
+<div class="topbar no-print">
+  <div class="brand">
+    <span class="eyebrow display">Fistful of Lead</span>
+    <h1 class="display">Crew Builder</h1>
+  </div>
+  <div class="field">
+    <label for="crewName">Crew name</label>
+    <input type="text" id="crewName" value="New Crew">
+  </div>
+  <div class="field">
+    <label for="crewTrait">Crew trait</label>
+    <select id="crewTrait"></select>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="btnImport">Import JSON</button>
+  <input type="file" id="fileImport" accept="application/json">
+  <button class="btn" id="btnExport">Export JSON</button>
+  <button class="btn primary" id="btnPrint">Open Roster in New Tab</button>
+  <span id="printStatus" class="mono" style="font-size:11px;color:var(--ink-soft);"></span>
+</div>
+<div class="helpbar no-print">
+  Builds the standard roster: <b>1 Leader</b> (free Leader trait + 3 picks, 5 slots) · <b>1 Specialist</b> (2 traits, 4 slots) · <b>3 Regular-or-Grunt slots</b> (1 trait, 3 slots — a Grunt group shares 1 trait and 2 slots). Everything is stateless: nothing saves automatically — use <b>Export JSON</b> before you close the tab, and <b>Import JSON</b> to resume later. Crew Traits that restructure the roster (Heroes All, Special Ops, Horde, Above Average, Tactical) are shown as a rules note only — they don't auto-change slot counts yet.
+</div>
+
+<div class="app" id="app"></div>
+<footer class="note no-print">Homebrew tool for Fistful of Lead: Galactic Heroes, 2nd Edition. All Trait/Equipment text is condensed from the rulebook — check the full rule for edge cases.</footer>
+
+<script>
+/* ======================= DATA ======================= */
+const TRAITS = [
+{n:"Brawler",d:"Once/turn, reroll your Close Combat action."},
+{n:"Camouflage",d:"Extra −1 to be hit while in cover."},
+{n:"Concealed Weapon",d:"Roll 2 dice, pick 1, for Close Combat (3 with a '2' card). Once/game."},
+{n:"Cold Blooded",lo:true,d:"+1 in Close Combat per Shock/Wound marker the opponent has."},
+{n:"Coolheaded",d:"+1 to all Shaken recovery rolls."},
+{n:"Cunning",d:"Reroll any Task roll once/turn."},
+{n:"Damaging Aura",lo:true,d:"Action: place 3\" burst template on self; hits like Burst fire."},
+{n:"Deadeye",d:"+1 to Shoot rolls."},
+{n:"Deadly Strike",d:"On a hit, target's Armor roll is reduced by −1 (stacks with weapon AP). Choose Hand or Ranged weapons."},
+{n:"Defensive Fighter",d:"If you're the Close Combat defender and win, get a free attack back."},
+{n:"Deft",d:"Reload costs 1 fewer action."},
+{n:"Determined",d:"Ignore Shock/Wound penalties in Close Combat."},
+{n:"Dodge",d:"If shot at and missed, immediately move 5\" toward cover."},
+{n:"Eagle Eyed",d:"Weapon short range +2\", long range +4\"."},
+{n:"Encouraging",lo:true,d:"Action: remove all Shock from one Crew member within 12\"."},
+{n:"Energy Blast",lo:true,d:"Innate Shoot action, 6\"/12\" range. No Out-of-Ammo on a '1' — rest a full turn to recharge instead."},
+{n:"Fancy Footwork",d:"Win ties in Close Combat."},
+{n:"Fearless",lo:true,d:"Ignore the multi-Shock-marker penalty on Recovery rolls."},
+{n:"Fearsome Appearance",d:"Enemies must pass a Regular (5+) Task to attack you in Close Combat."},
+{n:"Ferocious",d:"+1 to Wound rolls in Close Combat."},
+{n:"Flurry of Blows",d:"If a Close Combat win only causes Shock, fight an immediate second round."},
+{n:"Flier",d:"Jetpack/wings; ignores intervening terrain, can cover vertical height."},
+{n:"Gadgeteer",d:"Start each scenario with a free random Gear item."},
+{n:"Horseman",d:"Your mount gets an extra Trait."},
+{n:"Invulnerable",lo:true,d:"Reroll one failed Recovery roll, once/game."},
+{n:"Indomitable",d:"Remove ALL Shock markers by spending 2 actions."},
+{n:"Impervious",lo:true,d:"Ignore Wound penalties on movement/attack/recovery rolls."},
+{n:"Inspiring",lo:true,d:"Gain another Regular Crew member."},
+{n:"Infiltrator",d:"Once starting positions are set, immediately move 10\" in any direction."},
+{n:"Killer",d:"+1 to Wound rolls when Shooting."},
+{n:"Large",d:"Enemies +1 to hit you when Shooting. 4 Wounds instead of 3; +1 to your own Close Combat Wound rolls."},
+{n:"Leach",lo:true,d:"Cause a Wound/Out of Action in Close Combat → immediately heal 1 Wound."},
+{n:"Leaper",d:"+2\" bonus when jumping. Natural '1' still causes a fall."},
+{n:"Lightning Fast",d:"If successfully shot, immediately roll Hard (8+) Task; success = the shot misses instead."},
+{n:"Loads of ammo",d:"Ignore your first Out of Ammo result."},
+{n:"Loyal",d:"Won't voluntarily leave the table while a Crew member remains."},
+{n:"Lucky",lo:true,d:"Reroll any die roll once a turn."},
+{n:"Lunge",d:"Conduct Close Combat from 2\" away."},
+{n:"Master of Melee",lo:true,d:"Roll 2 dice in Close Combat, keep best (3 with a '2' card)."},
+{n:"Medic",d:"Action: move adjacent to Wounded model, Regular (5+) Task to heal 1 Wound. Roll ≤1 inflicts a Wound by mistake."},
+{n:"Mule",d:"Gain an extra Equipment Slot."},
+{n:"Nerves of Steel",d:"Ignore your first Shaken result of the game."},
+{n:"Night Vision",d:"See 24\" at night instead of 12\"."},
+{n:"Pet",lo:true,d:"Attackers −1 to hit you in Close Combat (unless they too have a pet); the pet can be sacrificed instead of a Wound/OOA result."},
+{n:"Poison/Venom",lo:true,d:"Close Combat Wound → roll Wound Chart again at end of every turn until healed. Natural '1' in Close Combat = out of poison rest of game."},
+{n:"Pugilist",d:"No negative modifier for fighting unarmed."},
+{n:"Quick",d:"+1\" on each Move action."},
+{n:"Ranged Fighter",d:"d12 for Shoot rolls, d8 for Close Combat; all other rolls d10. Not available to Grunts."},
+{n:"Ranger",d:"Ignore terrain movement penalties; +1 Close Combat while fighting in Rough terrain."},
+{n:"Running Attack",d:"After a Close Combat attack, use remaining movement to engage a new enemy."},
+{n:"Shape-Shifter",d:"Maintain 2 roster profiles; action to switch, lasts rest of game."},
+{n:"Sharp Tongued",d:"Pass an Easy (3+) Task to force an enemy in Close Combat to reroll their attack, once/turn."},
+{n:"Shieldmaster",d:"+1 on Armor rolls; winning Close Combat also lets you push the opponent 3\" away."},
+{n:"Sixth Sense",lo:true,d:"Force an enemy to reroll one Shoot action against you, once/turn."},
+{n:"Slippery",d:"Ignore the 1\" Close Combat zone of control; can leave Close Combat on activation."},
+{n:"Smart",d:"+1 to any Task roll."},
+{n:"Sniper",d:"Reroll a Shoot roll once/turn."},
+{n:"Solid as a Rock",d:"Never pushed back or moved in Close Combat."},
+{n:"Soulless",d:"Never take Shock results, but enemies get +1 to hit you when Shooting."},
+{n:"Sprinter",d:"+3\" free movement a turn, independent of other actions."},
+{n:"Steady",d:"Ignore Shock/Wound penalties when Shooting."},
+{n:"Stealthy",d:"−1 to be hit as a Shoot target. Stacks with Creeping."},
+{n:"Strategist",d:"While on the field and not Wounded-and-down, Crew is dealt 1 extra card/turn."},
+{n:"Street Fighter",d:"No negative modifier for facing multiple Close Combat opponents."},
+{n:"Strong",d:"+1 to knock down doors; wield a 2-handed weapon 1-handed; solo-crew a Team weapon."},
+{n:"Survivor",d:"+1 to campaign post-game survival roll."},
+{n:"Thundering Charge",d:"+1 to Close Combat roll if you're the attacker."},
+{n:"Tough as Nails",d:"4 Wounds instead of 3 (doesn't stack with Large). Grunt groups get 4 members instead of 3."},
+{n:"Two Fisted",d:"Roll a separate Close Combat die per opponent faced; still takes outnumbered penalty unless offset."},
+{n:"Two Gunned",d:"Dual pistols, Burst-capable. Only Out of Ammo if 2+ Shoot rolls come up '1'."},
+{n:"Unstoppable",d:"Once/turn, if you put an opponent Out of Action in Close Combat, immediately engage another enemy up to 5\" away."},
+{n:"Weapon Master",d:"+1 to Close Combat rolls when armed with a Close Combat weapon (stacks with the weapon's own bonus)."},
+{n:"Veteran",lo:true,d:"d12 for ALL rolls."},
+{n:"9 Lives",lo:true,d:"Once/game, convert an Out of Action result into 1 Wound instead."},
+{n:"Animal",d:"No shooting ability (may take an extra trait instead). Can't make Task rolls; base move 6\"."},
+{n:"Amphibious",d:"No movement penalty in water; no Task roll needed for deep water."},
+{n:"Bloodthirsty",d:"Must charge any enemy within move distance. +1 Close Combat roll and +1 Wound roll."},
+{n:"Bodyguard",lo:true,d:"May redirect a Wound result to a friendly model within 2\" instead of taking it yourself."},
+{n:"Brute",d:"No ranged combat abilities. Close Combat die raised to d12 (d10 for Grunts). If you lose a Close Combat, opponent gets +1 on Wound rolls against you. Max armor: Light + Shield."},
+{n:"Small",d:"Enemies −1 to hit you when Shooting. Only 2 Wounds; −1 to your own Close Combat Wound rolls."},
+];
+const NEG_TRAITS = [
+{n:"Brittle",d:"+1 to all Wound rolls made against this model."},
+{n:"Coward",d:"Must pass a Regular (5+) Task before engaging in Close Combat."},
+{n:"Drunkard",d:"Starts the game with 1 Wound already (all normal penalties apply)."},
+{n:"Green",d:"d8 for ALL rolls."},
+{n:"Lousy shot",d:"−1 to hit when Shooting."},
+{n:"Slow",d:"−1\" to movement Actions."},
+{n:"Squeamish",d:"−1 to Wound rolls you make when Shooting."},
+{n:"Unlucky",d:"Each enemy model may reroll any die roll against you once a game."},
+{n:"Unskilled",d:"−1 to all Close Combat rolls."},
+{n:"Weakling",d:"Only 2 Wounds instead of 3."},
+];
+const CREW_TRAITS = [
+{n:"— none —",d:""},
+{n:"Advanced Comms",d:"Crew dealt 1 extra card/turn (discard least favorite after seeing hands). Needs ≥2 models on the table."},
+{n:"Amphibious",d:"Whole Crew has the Amphibious trait."},
+{n:"Above Average",d:"No Specialist, but each Regular gets an extra Trait (structural — not auto-applied here)."},
+{n:"Armored",d:"Whole Crew gets Armored Hide trait or free Light Armor."},
+{n:"Bloodthirsty",d:"Whole Crew is Bloodthirsty."},
+{n:"Camouflage",d:"Whole Crew has the Camouflage trait."},
+{n:"Cool Headed",d:"Whole Crew has the Coolheaded trait."},
+{n:"Deadeye",d:"Whole Crew has the Deadeye trait."},
+{n:"Distress Beacon",d:"Pre-game roll d10; 5+ joined by 2 Regulars or 1 Specialist."},
+{n:"Eagle Eyed",d:"Whole Crew has the Eagle Eyed trait."},
+{n:"Fearless",d:"Whole Crew is Fearless."},
+{n:"Ferocious",d:"Whole Crew has the Ferocious trait."},
+{n:"Fliers",d:"Whole Crew are Fliers."},
+{n:"Heroes All",d:"Structural: Crew is 4 Specialists, no Leader (not auto-applied here)."},
+{n:"Horde",d:"Structural: Specialist slot + all 3 Regular slots become Grunt groups (not auto-applied here)."},
+{n:"Infiltrators",d:"Whole Crew has the Infiltrator trait."},
+{n:"Killers",d:"Whole Crew has the Killer trait."},
+{n:"Legendary",d:"Start each game with 3 Renown points."},
+{n:"Loyal",d:"Whole Crew has the Loyal trait."},
+{n:"Quick",d:"Whole Crew has the Quick trait."},
+{n:"Ranger",d:"Crew ignores terrain penalties."},
+{n:"Shapeshifters",d:"Whole Crew are Shapeshifters."},
+{n:"Soulless",d:"Whole Crew are Soulless."},
+{n:"Special Ops",d:"Structural: no Leader, gain 3 Regular spots instead (not auto-applied here)."},
+{n:"Stable",d:"Crew starts the game mounted."},
+{n:"Stealthy",d:"Whole Crew has the Stealthy trait."},
+{n:"Tactical",d:"Structural: replace one Regular with a Specialist (not auto-applied here)."},
+{n:"Workshop",d:"Start the game with an additional piece of random Gear."},
+];
+const EQUIPMENT = [
+// Weapons
+{n:"Dagger/Knife",cat:"Weapon",slots:0,d:"Wins ties vs unarmed opponents. Free — every model may carry one."},
+{n:"Sword",cat:"Weapon",slots:1,d:"+1 Close Combat rolls."},
+{n:"Axe",cat:"Weapon",slots:1,d:"+1 to Wound rolls."},
+{n:"Club/Mace/Flail",cat:"Weapon",slots:1,d:"Extra Shock marker added to the Wound roll."},
+{n:"Warhammer",cat:"Weapon",slots:1,d:"−1 from opponent's Armor roll."},
+{n:"Lance",cat:"Weapon",slots:1,d:"+1 Close Combat if mounted (+1 more if charging). Breaks if you win."},
+{n:"Whip",cat:"Weapon",slots:1,d:"Attack from 6\" away. A Wound result leaves the target Helpless."},
+{n:"2-Handed Sword",cat:"Weapon",slots:2,d:"+1 Close Combat, AP1. No shield."},
+{n:"2-Handed Axe",cat:"Weapon",slots:2,d:"+1 Wound, AP1. No shield."},
+{n:"2-Handed Warhammer",cat:"Weapon",slots:2,d:"−2 from opponent's Armor roll. No shield."},
+{n:"Polearm",cat:"Weapon",slots:2,d:"2\" Close Combat reach; +1 if charged; no shield."},
+{n:"Spear",cat:"Weapon",slots:2,d:"Polearm rules unless used 1-handed with a shield."},
+{n:"Pike",cat:"Weapon",slots:2,d:"Polearm; attacker loses ALL mounted/charge/lance bonuses vs this model."},
+{n:"Bow",cat:"Weapon",slots:2,d:"9\"/18\" range. Reload: 1 action."},
+{n:"Crossbow",cat:"Weapon",slots:2,d:"9\"/18\" range, +1 Wound at Short. Reload: 2 actions."},
+{n:"Warbow/Longbow",cat:"Weapon",slots:2,d:"12\"/24\" range. Reload: 1 action. Needs Strong to use."},
+{n:"Sling",cat:"Weapon",slots:1,d:"6\"/12\" range. Ignores the '1' Out-of-Ammo penalty. Reload: 1 action."},
+{n:"Throwing Knives/Axes/Javelin",cat:"Weapon",slots:1,d:"6\"/12\" range. No reload cost; out of weapons on a roll of 1–2."},
+{n:"Auto Pistol",cat:"Weapon",slots:1,d:"6\"/12\" range."},
+{n:"Auto Rifle",cat:"Weapon",slots:2,d:"6\"/12\" range. Burst-capable."},
+{n:"Submachine Gun",cat:"Weapon",slots:2,d:"12\"/24\" range. Burst-capable."},
+{n:"Machine Gun",cat:"Weapon",slots:3,d:"18\"/36\" range. Burst, Ammo Hog, Team weapon."},
+{n:"Blaster Pistol",cat:"Weapon",slots:1,d:"6\"/12\" range. Inaccurate (−1 Shoot, +1 Wound)."},
+{n:"Blaster Rifle",cat:"Weapon",slots:2,d:"12\"/24\" range. Inaccurate."},
+{n:"Heavy Blaster",cat:"Weapon",slots:3,d:"18\"/36\" range. Inaccurate, Team weapon."},
+{n:"Grenade",cat:"Weapon",slots:1,d:"Thrown d10+3\". Blast 3."},
+{n:"Grenade Launcher",cat:"Weapon",slots:2,d:"10\"/20\" range. Blast 3."},
+{n:"Laser Pistol",cat:"Weapon",slots:1,d:"8\"/16\" range. AP1, Ammo Hog."},
+{n:"Laser Rifle",cat:"Weapon",slots:2,d:"16\"/32\" range. AP1, Ammo Hog."},
+{n:"Heavy Laser",cat:"Weapon",slots:3,d:"24\"/48\" range. AP2, Ammo Hog, Burst, Team weapon."},
+{n:"Mazer",cat:"Weapon",slots:2,d:"8\"/16\" range. AP1, Ammo Hog, ignores cover."},
+{n:"Rocket Launcher",cat:"Weapon",slots:2,d:"12\"/24\" range. Blast 5, Limited Ammo. Specialist only."},
+{n:"Shotgun",cat:"Weapon",slots:2,d:"6\"/12\" range. Splash."},
+{n:"Sniper Rifle",cat:"Weapon",slots:2,d:"16\"/32\" range. Specialist only."},
+{n:"Stunner",cat:"Weapon",slots:2,d:"6\"/12\" range. Ignores armor on human-sized targets; −1 Wound vs living, +1 vs Soulless."},
+{n:"Flamer",cat:"Weapon",slots:2,d:"Flame template. Limited Ammo. Specialist only."},
+// Armor & Shields
+{n:"Light Armor",cat:"Armor",slots:1,d:"Armor roll 8+."},
+{n:"Heavy Armor",cat:"Armor",slots:2,d:"Armor roll 6+. −1\" move/action, Task difficulty +1. Grants the free Strong trait."},
+{n:"Extra Heavy Armor",cat:"Armor",slots:3,d:"Armor roll 5+. −1\" move/action, Task difficulty +2, can't Creep."},
+{n:"Shield",cat:"Armor",slots:1,d:"+1 Armor roll, −1 to be shot (doesn't stack with cover). Reduces outnumbered penalty for the 2nd Close Combat attacker. Can't Creep or use a 2H weapon."},
+{n:"Buckler",cat:"Armor",slots:1,d:"As Shield, but can Creep and doubles as a Two-Fisted weapon. No −1-to-be-shot bonus."},
+{n:"Tower Shield",cat:"Armor",slots:1,d:"As Shield; action to plant it for −2 to be shot. Allies in base contact behind it get −1 too."},
+// Gear
+{n:"Anti Gravity Harness",cat:"Gear",slots:1,d:"Grants Strong + Mule."},
+{n:"Autonomous Turret",cat:"Gear",slots:3,d:"2 actions to deploy; 360° arc once placed, can't move again. Mounts a Machine Gun/Heavy Blaster/Heavy Laser. Limited Ammo."},
+{n:"Belt Shield",cat:"Gear",slots:1,d:"Wearer always treated as in Light Cover."},
+{n:"Chameleon Cloak",cat:"Gear",slots:1,d:"Action to don; treated as hidden even out of cover."},
+{n:"Combat Drugs",cat:"Gear",slots:1,d:"Action: remove all Shock from self or an adjacent model. 1 use/game."},
+{n:"Comms Jammer",cat:"Gear",slots:1,d:"Negates enemy Advanced Comms Crew Trait."},
+{n:"Drone",cat:"Gear",slots:2,d:"Small, Flier, Soulless. Grants line of sight for indirect grenade/launcher targeting."},
+{n:"Exoskeleton",cat:"Gear",slots:1,d:"Grants Strong + Quick."},
+{n:"Extra Ammo",cat:"Gear",slots:1,d:"Ignore the first Out of Ammo result."},
+{n:"Holo-Suit",cat:"Gear",slots:2,d:"−1 to enemy Shoot rolls, stacks with cover. Ruined on a '1' when wounded."},
+{n:"Jet Pack",cat:"Gear",slots:2,d:"Grants Flier. Roll after each flight; '1' = out of fuel for the game."},
+{n:"Medi Pack",cat:"Gear",slots:1,d:"Action: remove 1 Wound from self or an adjacent model. 1 use/game."},
+{n:"Micro Launcher",cat:"Gear",slots:1,d:"Attaches a grenade launcher to your primary ranged weapon."},
+{n:"Nightvision Goggles",cat:"Gear",slots:1,d:"Grants the Night Vision trait."},
+{n:"Optical Sights",cat:"Gear",slots:1,d:"Grants the Deadeye trait."},
+{n:"Phase Suit",cat:"Gear",slots:1,d:"Pass through a solid wall/object. Roll d10 each use; '1' = roll on Wound Chart."},
+{n:"Power Fists",cat:"Gear",slots:2,d:"+1 to hit in Close Combat, +1 to the Wound roll."},
+{n:"Psionic Helmet",cat:"Gear",slots:1,d:"Grants one power from the Psionics list."},
+{n:"Shock Screen",cat:"Gear",slots:1,d:"Grants the Damaging Aura trait."},
+{n:"Suction Boots",cat:"Gear",slots:1,d:"Move up vertical surfaces as normal ground."},
+{n:"Teleporter Belt",cat:"Gear",slots:1,d:"Action to teleport anywhere in line of sight, with deviation."},
+{n:"Void Bag",cat:"Gear",slots:1,d:"Holds 20 Equipment-slots' worth of gear (still limited to what can be worn at once)."},
+];
+
+/* ======================= STATE ======================= */
+function newModel(role, isLeader){
+  return {
+    role, name:"", isGrunt:false,
+    traits: isLeader ? [] : [],
+    sharedTrait:null,
+    negTrait:null, tradeSlot:false,
+    equip: []
+  };
+}
+let STATE = {
+  crewName:"New Crew",
+  crewTrait:"— none —",
+  models:[
+    newModel("Leader", true),
+    newModel("Specialist"),
+    newModel("Regular"),
+    newModel("Regular"),
+    newModel("Regular"),
+  ]
+};
+
+/* ======================= RULES HELPERS ======================= */
+function baseCaps(m){
+  if(m.role==="Leader") return {traits:3, slots:5};
+  if(m.role==="Specialist") return {traits:2, slots:4};
+  return m.isGrunt ? {traits:1, slots:2} : {traits:1, slots:3};
+}
+function caps(m){
+  const b = baseCaps(m);
+  let traits = b.traits, slots = b.slots;
+  if(m.negTrait) traits += 1;
+  if(m.tradeSlot){ traits += 1; slots -= 2; }
+  return {traits, slots};
+}
+function traitCount(m){ return m.isGrunt ? (m.sharedTrait?1:0) : m.traits.length; }
+function slotsUsed(m){ return m.equip.reduce((s,n)=>{
+    const item = EQUIPMENT.find(e=>e.n===n);
+    return s + (item ? item.slots : 0);
+  },0);
+}
+function allTraitNames(m){
+  const arr = m.isGrunt ? (m.sharedTrait?[m.sharedTrait]:[]) : m.traits.slice();
+  if(m.role==="Leader") arr.push("Leader");
+  if(m.negTrait) arr.push(m.negTrait);
+  return arr;
+}
+function qualityDie(m){
+  if(m.isGrunt) return "d8";
+  const t = allTraitNames(m);
+  if(t.includes("Veteran")) return "d12 (all rolls)";
+  if(t.includes("Green")) return "d8 (all rolls)";
+  if(t.includes("Ranged Fighter")) return "d12 Shoot / d8 CC";
+  return "d10";
+}
+function woundCount(m){
+  const t = allTraitNames(m);
+  if(t.includes("Large") || t.includes("Tough as Nails")) return 4;
+  if(t.includes("Small") || t.includes("Weakling")) return 2;
+  return 3;
+}
+function roleClass(role){ return role==="Leader"?"leader":role==="Specialist"?"specialist":"regular"; }
+
+/* ======================= RENDER: BUILDER ======================= */
+function chipClass(used, max){
+  if(used>max) return "over";
+  if(used===max) return "warn";
+  return "ok";
+}
+function traitRow(t, m, isNeg){
+  const chosen = isNeg ? (m.negTrait===t.n) : (m.isGrunt ? m.sharedTrait===t.n : m.traits.includes(t.n));
+  const capInfo = caps(m);
+  const atCap = isNeg ? false : (m.isGrunt ? (m.sharedTrait && !chosen) : (traitCount(m) >= capInfo.traits && !chosen));
+  const leaderLocked = t.lo && m.role!=="Leader";
+  const disabled = (atCap || leaderLocked) && !chosen;
+  return `<label class="pick-row ${disabled?'disabled':''}">
+    <input type="checkbox" data-kind="${isNeg?'neg':'trait'}" data-name="${t.n}" ${chosen?'checked':''} ${disabled?'disabled':''}>
+    <span>
+      <span class="name">${t.n}</span>${t.lo?' <span class="tag">Leader-only</span>':''}
+      <div class="desc">${t.d}${leaderLocked?' — only available to a Leader.':''}</div>
+    </span>
+    <span class="cost"></span>
+  </label>`;
+}
+function equipRow(item, m){
+  const chosen = m.equip.includes(item.n);
+  const cap = caps(m);
+  const used = slotsUsed(m);
+  const wouldExceed = !chosen && item.slots>0 && (used+item.slots) > cap.slots;
+  return `<label class="pick-row">
+    <input type="checkbox" data-kind="equip" data-name="${item.n}" ${chosen?'checked':''}>
+    <span>
+      <span class="name">${item.n}</span> <span class="tag">${item.cat}</span>
+      <div class="desc">${item.d}${wouldExceed?' — over your remaining slots.':''}</div>
+    </span>
+    <span class="cost mono">${item.slots} slot${item.slots===1?'':'s'}</span>
+  </label>`;
+}
+function modelIndex(m){ return STATE.models.indexOf(m); }
+
+function renderModelCard(m, idx, open){
+  const cap = caps(m);
+  const tCount = traitCount(m);
+  const sUsed = slotsUsed(m);
+  const dieText = qualityDie(m);
+  const roleLabel = m.role==="Regular" && m.isGrunt ? "Grunt Group (×3)" : m.role;
+  const grunt = m.role==="Regular" ? `<label class="grunt-toggle"><input type="checkbox" data-kind="isGrunt" ${m.isGrunt?'checked':''}> Grunt group</label>` : "";
+  const traitFilterId = `tf-${idx}`, equipFilterId = `ef-${idx}`;
+
+  const negBlock = `
+    <div class="neg-block">
+      <label><input type="checkbox" data-kind="negToggle" ${m.negTrait?'checked':''}> Take 1 Negative Trait for +1 extra Trait pick (max 1)</label>
+      ${m.negTrait ? `<select data-kind="negSelect">${NEG_TRAITS.map(nt=>`<option value="${nt.n}" ${m.negTrait===nt.n?'selected':''}>${nt.n} — ${nt.d}</option>`).join("")}</select>` : ""}
+      <label><input type="checkbox" data-kind="tradeSlot" ${m.tradeSlot?'checked':''}> Trade 2 Equipment slots for 1 extra Trait (initial build only)</label>
+    </div>`;
+
+  return `
+  <details class="model-card" ${open?'open':''} data-idx="${idx}">
+    <summary>
+      <div class="mhead">
+        <span class="role-dot role-${roleClass(m.role)}"></span>
+        <span class="role-label">${roleLabel}</span>
+        <input type="text" data-kind="name" placeholder="Name" value="${m.name.replace(/"/g,'&quot;')}">
+        <span class="die-badge mono">${dieText}</span>
+        ${grunt}
+        <span class="caret">▶</span>
+      </div>
+    </summary>
+    <div class="mbody">
+      ${negBlock}
+      <div>
+        <div class="panel-head">
+          <span class="panel-title">${m.isGrunt?'Shared Trait':'Traits'}</span>
+          <span class="count-chip ${chipClass(tCount,cap.traits)}">${tCount} / ${cap.traits}</span>
+        </div>
+        <input class="search" id="${traitFilterId}" placeholder="Filter traits…" data-kind="traitFilter">
+        <div class="pick-list" data-kind="traitList">
+          ${TRAITS.map(t=>traitRow(t,m,false)).join("")}
+        </div>
+      </div>
+      <div>
+        <div class="panel-head">
+          <span class="panel-title">Weapons, Armor &amp; Gear</span>
+          <span class="count-chip ${chipClass(sUsed,cap.slots)}">${sUsed} / ${cap.slots} slots</span>
+        </div>
+        <input class="search" id="${equipFilterId}" placeholder="Filter equipment…" data-kind="equipFilter">
+        <div class="pick-list" data-kind="equipList">
+          ${EQUIPMENT.filter(e=>e.slots>0).map(e=>equipRow(e,m)).join("")}
+        </div>
+      </div>
+    </div>
+  </details>`;
+}
+
+function pipRow(count, cls){
+  let out = "";
+  for(let i=0;i<count;i++) out += `<span class="${cls}"></span>`;
+  return out;
+}
+function previewCard(m){
+  const cap = caps(m);
+  const sUsed = slotsUsed(m);
+  const tNames = m.isGrunt ? (m.sharedTrait?[m.sharedTrait]:[]) : m.traits.slice();
+  if(m.role==="Leader") tNames.unshift("Leader");
+  if(m.negTrait) tNames.push(m.negTrait);
+  const gearList = m.equip.length
+    ? m.equip.map(n=>{ const it=EQUIPMENT.find(e=>e.n===n); return `<li><span>${n}</span><span>${it?it.slots:0} slot${it&&it.slots===1?'':'s'}</span></li>`; }).join("")
+    : `<li class="p-empty">No equipment selected yet</li>`;
+  const label = m.role==="Regular" && m.isGrunt ? "Grunt Group (×3, share 1 card)" : m.role;
+  const wounds = woundCount(m);
+  return `
+  <div class="p-card ${roleClass(m.role)}">
+    <div class="p-head">
+      <div>
+        <div class="p-role">${label}</div>
+        <div class="p-name">${m.name || "(unnamed)"}</div>
+      </div>
+      <div class="p-die mono">${qualityDie(m)}</div>
+    </div>
+    <div class="p-body">
+      <div>
+        <div class="p-label">Traits</div>
+        <div class="p-pills">${tNames.length ? tNames.map(n=>`<span class="p-pill">${n}</span>`).join("") : '<span class="p-empty">none picked</span>'}</div>
+      </div>
+      <div>
+        <div class="p-label">Equipment</div>
+        <ul class="p-gear mono">${gearList}<li><span>Dagger/Knife</span><span>free</span></li></ul>
+      </div>
+      <div class="p-tracker">
+        <span>Slots <b class="mono">${sUsed}/${cap.slots}</b></span>
+        <span>Wounds <span class="pips">${pipRow(wounds,'pip-box')}</span></span>
+        <span>Shock <span class="pips">${pipRow(5,'pip-circle')}</span></span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function totalSlotsSummary(){
+  return STATE.models.map(m=>{
+    const c = caps(m);
+    const u = slotsUsed(m);
+    return `${m.role==="Regular"&&m.isGrunt?"Grunts":m.role}: ${u}/${c.slots}`;
+  }).join(" · ");
+}
+
+function render(){
+  const wasOpen = new Set([...document.querySelectorAll('.model-card[open]')].map(d=>d.dataset.idx));
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="builder">
+      ${STATE.models.map((m,i)=>renderModelCard(m,i, wasOpen.size? wasOpen.has(String(i)) : i===0)).join("")}
+    </div>
+    <div class="preview-col">
+      <div class="sheet" id="sheet">
+        <div class="sheet-head">
+          <span class="eyebrow display">Fistful of Lead · Galactic Heroes</span>
+          <h2>${STATE.crewName || "Unnamed Crew"}</h2>
+          <span class="ct">Crew Trait — <b>${STATE.crewTrait}</b></span>
+        </div>
+        <div class="sheet-cards">
+          ${STATE.models.map(previewCard).join("")}
+        </div>
+        <div class="totals mono">${totalSlotsSummary()}</div>
+      </div>
+    </div>
+  `;
+  bindEvents();
+}
+
+/* ======================= EVENTS ======================= */
+function bindEvents(){
+  document.querySelectorAll(".model-card").forEach(card=>{
+    const idx = +card.dataset.idx;
+    const m = STATE.models[idx];
+
+    card.querySelector('[data-kind="name"]').addEventListener("input", e=>{
+      m.name = e.target.value;
+      const pName = document.querySelectorAll(".p-name")[idx];
+      if(pName) pName.textContent = m.name || "(unnamed)";
+    });
+
+    const gruntBox = card.querySelector('[data-kind="isGrunt"]');
+    if(gruntBox){
+      gruntBox.addEventListener("change", e=>{
+        m.isGrunt = e.target.checked;
+        if(m.isGrunt){ m.sharedTrait = m.traits[0]||null; m.traits=[]; }
+        else { m.traits = m.sharedTrait? [m.sharedTrait]:[]; m.sharedTrait=null; }
+        render();
+      });
+    }
+
+    const negToggle = card.querySelector('[data-kind="negToggle"]');
+    if(negToggle) negToggle.addEventListener("change", e=>{
+      m.negTrait = e.target.checked ? NEG_TRAITS[0].n : null;
+      render();
+    });
+    const negSelect = card.querySelector('[data-kind="negSelect"]');
+    if(negSelect) negSelect.addEventListener("change", e=>{ m.negTrait = e.target.value; render(); });
+
+    const tradeBox = card.querySelector('[data-kind="tradeSlot"]');
+    if(tradeBox) tradeBox.addEventListener("change", e=>{ m.tradeSlot = e.target.checked; render(); });
+
+    card.querySelectorAll('[data-kind="traitList"] input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener("change", e=>{
+        const name = e.target.dataset.name;
+        if(m.isGrunt){
+          m.sharedTrait = e.target.checked ? name : null;
+        } else {
+          if(e.target.checked) m.traits.push(name);
+          else m.traits = m.traits.filter(n=>n!==name);
+        }
+        render();
+      });
+    });
+
+    card.querySelectorAll('[data-kind="equipList"] input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener("change", e=>{
+        const name = e.target.dataset.name;
+        if(e.target.checked) m.equip.push(name);
+        else m.equip = m.equip.filter(n=>n!==name);
+        render();
+      });
+    });
+
+    const tf = card.querySelector('[data-kind="traitFilter"]');
+    if(tf) tf.addEventListener("input", e=>{
+      const q = e.target.value.toLowerCase();
+      card.querySelectorAll('[data-kind="traitList"] .pick-row').forEach(row=>{
+        row.style.display = row.querySelector(".name").textContent.toLowerCase().includes(q) ? "" : "none";
+      });
+    });
+    const ef = card.querySelector('[data-kind="equipFilter"]');
+    if(ef) ef.addEventListener("input", e=>{
+      const q = e.target.value.toLowerCase();
+      card.querySelectorAll('[data-kind="equipList"] .pick-row').forEach(row=>{
+        row.style.display = row.querySelector(".name").textContent.toLowerCase().includes(q) ? "" : "none";
+      });
+    });
+  });
+}
+
+/* ======================= TOPBAR ======================= */
+function initTopbar(){
+  const crewNameInput = document.getElementById("crewName");
+  crewNameInput.value = STATE.crewName;
+  crewNameInput.addEventListener("input", e=>{
+    STATE.crewName = e.target.value;
+    document.querySelector(".sheet-head h2").textContent = STATE.crewName || "Unnamed Crew";
+  });
+
+  const crewTraitSelect = document.getElementById("crewTrait");
+  crewTraitSelect.innerHTML = CREW_TRAITS.map(ct=>`<option value="${ct.n}" title="${ct.d}">${ct.n}</option>`).join("");
+  crewTraitSelect.value = STATE.crewTrait;
+  crewTraitSelect.addEventListener("change", e=>{
+    STATE.crewTrait = e.target.value;
+    render();
+  });
+
+  document.getElementById("btnPrint").addEventListener("click", openPrintableRoster);
+
+  document.getElementById("btnExport").addEventListener("click", ()=>{
+    const out = {
+      crewName: STATE.crewName,
+      crewTrait: STATE.crewTrait,
+      models: STATE.models.map(m=>({
+        role: m.role==="Regular" && m.isGrunt ? "Grunt Group" : m.role,
+        name: m.name,
+        qualityDie: qualityDie(m),
+        traits: m.isGrunt ? (m.sharedTrait?[m.sharedTrait]:[]) : m.traits.slice(),
+        negativeTrait: m.negTrait,
+        traitTradeUsed: m.tradeSlot,
+        equipment: m.equip.map(n=>{ const it=EQUIPMENT.find(e=>e.n===n); return {name:n, slots: it?it.slots:0, category: it?it.cat:""}; }),
+        slotsUsed: slotsUsed(m),
+        slotsMax: caps(m).slots,
+        traitsUsed: traitCount(m),
+        traitsMax: caps(m).traits,
+        wounds: woundCount(m)
+      }))
+    };
+    const jsonText = JSON.stringify(out,null,2);
+    const filename = (STATE.crewName || "crew").toLowerCase().replace(/[^a-z0-9]+/g,"-") + ".json";
+    const blob = new Blob([jsonText], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+
+    let openedTab = null;
+    try{ openedTab = window.open(url, "_blank"); }catch(err){ openedTab = null; }
+
+    if(!openedTab){
+      showTextModal(
+        "Crew JSON (popup was blocked)",
+        "Your browser blocked the new tab. Copy the JSON below and save it as a file yourself.",
+        filename,
+        jsonText
+      );
+    }
+  });
+
+  document.getElementById("btnImport").addEventListener("click", ()=>document.getElementById("fileImport").click());
+  document.getElementById("fileImport").addEventListener("change", e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = evt=>{
+      try{
+        const data = JSON.parse(evt.target.result);
+        importCrew(data);
+      }catch(err){
+        alert("Couldn't read that file as crew JSON: " + err.message);
+      }
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+}
+
+function buildPrintableHTML(){
+  const crewName = STATE.crewName || "Unnamed Crew";
+  const cards = STATE.models.map(previewCard).join("");
+  const totals = totalSlotsSummary();
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>${crewName} — Roster Sheet</title>
+<style>
+  :root{ --ink:#1b241f; --ink-soft:#5c655e; --ink-faint:#8b9389; --border:#cfcabb;
+    --accent:#146b74; --danger:#b23327; --warn:#a9721f; --surface-2:#f1efe7; }
+  *{box-sizing:border-box;}
+  body{ font-family: ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:#fff; margin:0; padding:28px; font-size:13px; }
+  .mono{ font-family: ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Roboto Mono",monospace; font-variant-numeric: tabular-nums; }
+  .display{ font-family:"Bahnschrift","Arial Narrow","Helvetica Neue Condensed Bold","Roboto Condensed",sans-serif;
+    font-stretch:condensed; text-transform:uppercase; letter-spacing:.04em; }
+  .eyebrow{ font-size:10px; letter-spacing:.2em; color:var(--ink-faint); }
+  h2{ font-size:22px; font-weight:800; margin:2px 0; }
+  .ct{ font-size:12px; color:var(--ink-soft); }
+  .ct b{ color:var(--accent); }
+  .sheet-head{ padding-bottom:12px; border-bottom:2px solid var(--accent); margin-bottom:14px; }
+  .sheet-cards{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .p-card{ border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:3px; break-inside:avoid; }
+  .p-card.leader{ border-left-color:var(--danger); }
+  .p-card.specialist{ border-left-color:var(--warn); }
+  .p-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:10px 12px; border-bottom:1px dashed var(--border); }
+  .p-role{ font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); }
+  .p-name{ font-size:15px; font-weight:800; margin:2px 0; }
+  .p-die{ font-size:11px; border:1px solid var(--border); border-radius:20px; padding:2px 8px; color:var(--ink-soft); white-space:nowrap; }
+  .p-body{ padding:8px 12px 12px; display:flex; flex-direction:column; gap:8px; }
+  .p-label{ font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px; }
+  .p-pills{ display:flex; flex-wrap:wrap; gap:4px; }
+  .p-pill{ font-size:11px; padding:2px 7px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; }
+  .p-gear{ list-style:none; margin:0; padding:0; font-size:12px; }
+  .p-gear li{ display:flex; justify-content:space-between; border-bottom:1px dotted var(--border); padding:2px 0; }
+  .p-gear li span:last-child{ color:var(--ink-soft); }
+  .p-empty{ color:var(--ink-faint); font-style:italic; font-size:12px; }
+  .p-tracker{ display:flex; gap:14px; padding-top:6px; border-top:1px solid var(--border); font-size:11px; }
+  .pips{ display:flex; gap:4px; }
+  .pip-box{ width:11px; height:11px; border:1.5px solid var(--danger); display:inline-block; }
+  .pip-circle{ width:11px; height:11px; border-radius:50%; border:1.5px solid var(--warn); display:inline-block; }
+  .totals{ margin-top:14px; padding:10px 12px; background:var(--surface-2); border-radius:3px; font-size:12px; }
+  .totals b{ color:var(--accent); }
+  .hint{ margin-top:18px; font-size:11px; color:var(--ink-faint); }
+  @media print{ .hint{ display:none; } body{ padding:0; } }
+</style></head>
+<body>
+  <div class="sheet-head">
+    <div class="eyebrow display">Fistful of Lead · Galactic Heroes</div>
+    <h2>${crewName}</h2>
+    <div class="ct">Crew Trait — <b>${STATE.crewTrait}</b></div>
+  </div>
+  <div class="sheet-cards">${cards}</div>
+  <div class="totals mono">${totals}</div>
+  <p class="hint">Press Ctrl/Cmd+P to print this sheet.</p>
+</body></html>`;
+}
+
+function setPrintStatus(msg){
+  const status = document.getElementById("printStatus");
+  if(!status) return;
+  status.textContent = msg;
+  setTimeout(()=>{ if(status.textContent===msg) status.textContent=""; }, 8000);
+}
+
+function showTextModal(title, hint, filename, text){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3>${title}</h3>
+        <button class="btn" data-act="close">Close ✕</button>
+      </div>
+      <div class="modal-body">
+        <p>${hint} Suggested filename: <code class="mono">${filename}</code></p>
+        <textarea readonly spellcheck="false"></textarea>
+        <div class="modal-actions">
+          <button class="btn primary" data-act="select">Select All</button>
+          <button class="btn" data-act="copy">Copy to Clipboard</button>
+          <span class="modal-status" data-act="status"></span>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const ta = overlay.querySelector("textarea");
+  ta.value = text;
+  const statusEl = overlay.querySelector('[data-act="status"]');
+  overlay.querySelector('[data-act="close"]').addEventListener("click", ()=>overlay.remove());
+  overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.remove(); });
+  overlay.querySelector('[data-act="select"]').addEventListener("click", ()=>{ ta.focus(); ta.select(); });
+  overlay.querySelector('[data-act="copy"]').addEventListener("click", async ()=>{
+    ta.focus(); ta.select();
+    try{
+      await navigator.clipboard.writeText(ta.value);
+      statusEl.textContent = "Copied!";
+    }catch(err){
+      statusEl.textContent = "Clipboard blocked — press Ctrl/Cmd+C now (text is already selected).";
+    }
+  });
+  ta.focus(); ta.select();
+}
+
+function openPrintableRoster(){
+  const html = buildPrintableHTML();
+  const filename = (STATE.crewName || "crew").toLowerCase().replace(/[^a-z0-9]+/g,"-") + "-roster.html";
+  const blob = new Blob([html], {type:"text/html"});
+  const url = URL.createObjectURL(blob);
+
+  let openedTab = null;
+  try{ openedTab = window.open(url, "_blank"); }catch(err){ openedTab = null; }
+
+  if(openedTab){
+    setPrintStatus("Opened in a new tab — press Ctrl/Cmd+P there.");
+  } else {
+    setPrintStatus("Popup blocked — showing the roster below instead.");
+    showTextModal(
+      "Roster (popup was blocked)",
+      "Your browser blocked the new tab. Copy the HTML below, paste it into a new file, save it, then open that file and print it.",
+      filename,
+      html
+    );
+  }
+}
+
+function importCrew(data){
+  const models = (data.models||[]).map(im=>{
+    const isGrunt = im.role === "Grunt Group";
+    const role = isGrunt ? "Regular" : (im.role || "Regular");
+    const m = newModel(role, role==="Leader");
+    m.isGrunt = isGrunt;
+    m.name = im.name || "";
+    const traitNames = (im.traits||[]).filter(n=>n!=="Leader");
+    if(isGrunt) m.sharedTrait = traitNames[0] || null;
+    else m.traits = traitNames;
+    m.negTrait = im.negativeTrait || null;
+    m.tradeSlot = !!im.traitTradeUsed;
+    m.equip = (im.equipment||[]).map(eq=> typeof eq==="string" ? eq : eq.name);
+    return m;
+  });
+  while(models.length < 5) models.push(newModel("Regular"));
+  STATE = {
+    crewName: data.crewName || "Imported Crew",
+    crewTrait: data.crewTrait || "— none —",
+    models: models.slice(0,5)
+  };
+  render();
+  initTopbar();
+}
+
+/* ======================= BOOT ======================= */
+render();
+initTopbar();
+</script>
