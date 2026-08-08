@@ -196,6 +196,10 @@
   .p-label{ font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px; }
   .p-pills{ display:flex; flex-wrap:wrap; gap:4px; }
   .p-pill{ font-size:11px; padding:2px 7px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; }
+  .p-traits-detailed{ display:flex; flex-direction:column; gap:6px; }
+  .p-trait{ display:flex; flex-direction:column; }
+  .p-trait-name{ font-size:12px; font-weight:700; }
+  .p-trait-desc{ font-size:11px; color:var(--ink-soft); line-height:1.4; }
   .p-gear{ list-style:none; margin:0; padding:0; font-size:12px; }
   .p-gear li{ display:flex; justify-content:space-between; border-bottom:1px dotted var(--border); padding:2px 0; }
   .p-gear li span:last-child{ color:var(--ink-soft); }
@@ -628,7 +632,16 @@ function pipRow(count, cls){
   for(let i=0;i<count;i++) out += `<span class="${cls}"></span>`;
   return out;
 }
-function previewCard(m){
+const LEADER_FREE_DESC = "+1 to Recovery rolls (Shaken or Wounded-and-Down) for friendly models within 12\" and line of sight.";
+function traitDesc(name){
+  if(name==="Leader") return LEADER_FREE_DESC;
+  const t = TRAITS.find(x=>x.n===name);
+  if(t) return t.d;
+  const nt = NEG_TRAITS.find(x=>x.n===name);
+  if(nt) return nt.d;
+  return "";
+}
+function previewCard(m, withEffects){
   const cap = caps(m);
   const sUsed = slotsUsed(m);
   const tNames = m.isGrunt ? (m.sharedTrait?[m.sharedTrait]:[]) : m.traits.slice();
@@ -639,6 +652,11 @@ function previewCard(m){
     : `<li class="p-empty">No equipment selected yet</li>`;
   const label = m.role==="Regular" && m.isGrunt ? "Grunt Group (×3, share 1 card)" : m.role;
   const wounds = woundCount(m);
+  const traitsHtml = !tNames.length
+    ? '<span class="p-empty">none picked</span>'
+    : withEffects
+      ? `<div class="p-traits-detailed">${tNames.map(n=>`<div class="p-trait"><span class="p-trait-name">${n}</span><span class="p-trait-desc">${traitDesc(n)}</span></div>`).join("")}</div>`
+      : `<div class="p-pills">${tNames.map(n=>`<span class="p-pill">${n}</span>`).join("")}</div>`;
   return `
   <div class="p-card ${roleClass(m.role)}">
     <div class="p-head">
@@ -651,7 +669,7 @@ function previewCard(m){
     <div class="p-body">
       <div>
         <div class="p-label">Traits</div>
-        <div class="p-pills">${tNames.length ? tNames.map(n=>`<span class="p-pill">${n}</span>`).join("") : '<span class="p-empty">none picked</span>'}</div>
+        ${traitsHtml}
       </div>
       <div>
         <div class="p-label">Equipment</div>
@@ -846,7 +864,7 @@ function initTopbar(){
 
 function buildPrintableHTML(){
   const crewName = STATE.crewName || "Unnamed Crew";
-  const cards = STATE.models.map(previewCard).join("");
+  const cards = STATE.models.map(m=>previewCard(m,true)).join("");
   const totals = totalSlotsSummary();
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${crewName} — Roster Sheet</title>
@@ -876,6 +894,10 @@ function buildPrintableHTML(){
   .p-label{ font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px; }
   .p-pills{ display:flex; flex-wrap:wrap; gap:4px; }
   .p-pill{ font-size:11px; padding:2px 7px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; }
+  .p-traits-detailed{ display:flex; flex-direction:column; gap:6px; }
+  .p-trait{ display:flex; flex-direction:column; }
+  .p-trait-name{ font-size:12px; font-weight:700; }
+  .p-trait-desc{ font-size:11px; color:var(--ink-soft); line-height:1.4; }
   .p-gear{ list-style:none; margin:0; padding:0; font-size:12px; }
   .p-gear li{ display:flex; justify-content:space-between; border-bottom:1px dotted var(--border); padding:2px 0; }
   .p-gear li span:last-child{ color:var(--ink-soft); }
