@@ -270,7 +270,7 @@
   <span id="printStatus" class="mono" style="font-size:11px;color:var(--ink-soft);"></span>
 </div>
 <div class="helpbar no-print">
-  Builds the standard roster: <b>1 Leader</b> (free Leader trait + 3 picks, 5 slots) · <b>1 Specialist</b> (2 traits, 4 slots) · <b>3 Regular-or-Grunt slots</b> (1 trait, 3 slots — a Grunt group shares 1 trait and 2 slots). Everything is stateless: nothing saves automatically — use <b>Export JSON</b> before you close the tab, and <b>Import JSON</b> to resume later. Crew Traits that restructure the roster (Heroes All, Special Ops, Horde, Above Average, Tactical) are shown as a rules note only — they don't auto-change slot counts yet.
+  Default roster: <b>1 Leader</b> (free Leader trait + 3 picks, 5 slots) · <b>1 Specialist</b> (2 traits, 4 slots) · <b>3 Regular-or-Grunt slots</b> (1 trait, 3 slots — a Grunt group shares 1 trait and 2 slots). Picking <b>Heroes All</b>, <b>Special Ops</b>, <b>Horde</b>, <b>Above Average</b>, or <b>Tactical</b> as your Crew Trait now actually reshapes the roster to match — existing model data carries over by role where it still fits. Everything is stateless: nothing saves automatically — use <b>Export JSON</b> before you close the tab, and <b>Import JSON</b> to resume later.
 </div>
 
 <div class="app" id="app"></div>
@@ -376,7 +376,7 @@ const CREW_TRAITS = [
 {n:"— none —",d:""},
 {n:"Advanced Comms",d:"Crew dealt 1 extra card/turn (discard least favorite after seeing hands). Needs ≥2 models on the table."},
 {n:"Amphibious",d:"Whole Crew has the Amphibious trait."},
-{n:"Above Average",d:"No Specialist, but each Regular gets an extra Trait (structural — not auto-applied here)."},
+{n:"Above Average",d:"Structural — reshapes the roster: no Specialist, but each Regular gets an extra Trait slot."},
 {n:"Armored",d:"Whole Crew gets Armored Hide trait or free Light Armor."},
 {n:"Bloodthirsty",d:"Whole Crew is Bloodthirsty."},
 {n:"Camouflage",d:"Whole Crew has the Camouflage trait."},
@@ -387,8 +387,8 @@ const CREW_TRAITS = [
 {n:"Fearless",d:"Whole Crew is Fearless."},
 {n:"Ferocious",d:"Whole Crew has the Ferocious trait."},
 {n:"Fliers",d:"Whole Crew are Fliers."},
-{n:"Heroes All",d:"Structural: Crew is 4 Specialists, no Leader (not auto-applied here)."},
-{n:"Horde",d:"Structural: Specialist slot + all 3 Regular slots become Grunt groups (not auto-applied here)."},
+{n:"Heroes All",d:"Structural — reshapes the roster: Crew is 4 Specialists, no Leader."},
+{n:"Horde",d:"Structural — reshapes the roster: Specialist slot + all 3 Regular slots become Grunt groups."},
 {n:"Infiltrators",d:"Whole Crew has the Infiltrator trait."},
 {n:"Killers",d:"Whole Crew has the Killer trait."},
 {n:"Legendary",d:"Start each game with 3 Renown points."},
@@ -397,10 +397,10 @@ const CREW_TRAITS = [
 {n:"Ranger",d:"Crew ignores terrain penalties."},
 {n:"Shapeshifters",d:"Whole Crew are Shapeshifters."},
 {n:"Soulless",d:"Whole Crew are Soulless."},
-{n:"Special Ops",d:"Structural: no Leader, gain 3 Regular spots instead (not auto-applied here)."},
+{n:"Special Ops",d:"Structural — reshapes the roster: no Leader, gain 3 Regular spots instead (Specialist + 6 Regulars)."},
 {n:"Stable",d:"Crew starts the game mounted."},
 {n:"Stealthy",d:"Whole Crew has the Stealthy trait."},
-{n:"Tactical",d:"Structural: replace one Regular with a Specialist (not auto-applied here)."},
+{n:"Tactical",d:"Structural — reshapes the roster: replace one Regular with a Specialist."},
 {n:"Workshop",d:"Start the game with an additional piece of random Gear."},
 ];
 const EQUIPMENT = [
@@ -476,8 +476,8 @@ const EQUIPMENT = [
 /* ======================= STATE ======================= */
 function newModel(role, isLeader){
   return {
-    role, name:"", isGrunt:false,
-    traits: isLeader ? [] : [],
+    role, name:"", isGrunt:false, bonusTrait:false,
+    traits: [],
     sharedTrait:null,
     negTrait:null, tradeSlot:false,
     equip: []
@@ -495,11 +495,46 @@ let STATE = {
   ]
 };
 
+/* ======================= STRUCTURAL CREW TRAITS =======================
+   These 5 Crew Traits don't just grant a bonus — they redefine the roster
+   shape itself. See rulebook p.31. */
+const STRUCTURAL_SHAPES = {
+  "Heroes All": [ {role:"Specialist"},{role:"Specialist"},{role:"Specialist"},{role:"Specialist"} ],
+  "Special Ops": [ {role:"Specialist"}, {role:"Regular"},{role:"Regular"},{role:"Regular"}, {role:"Regular"},{role:"Regular"},{role:"Regular"} ],
+  "Horde": [ {role:"Leader"}, {role:"Regular",isGrunt:true},{role:"Regular",isGrunt:true},{role:"Regular",isGrunt:true},{role:"Regular",isGrunt:true} ],
+  "Above Average": [ {role:"Leader"}, {role:"Regular",bonusTrait:true},{role:"Regular",bonusTrait:true},{role:"Regular",bonusTrait:true} ],
+  "Tactical": [ {role:"Leader"}, {role:"Specialist"},{role:"Specialist"}, {role:"Regular"},{role:"Regular"} ],
+};
+const DEFAULT_SHAPE = [ {role:"Leader"},{role:"Specialist"},{role:"Regular"},{role:"Regular"},{role:"Regular"} ];
+function getRosterShape(crewTrait){
+  return STRUCTURAL_SHAPES[crewTrait] || DEFAULT_SHAPE;
+}
+function restructureModels(shape){
+  const pool = STATE.models.slice();
+  const used = new Set();
+  STATE.models = shape.map(slot=>{
+    let idx = pool.findIndex((m,i)=> !used.has(i) && m.role===slot.role);
+    if(idx===-1) idx = pool.findIndex((m,i)=> !used.has(i));
+    const base = idx!==-1 ? pool[idx] : null;
+    if(idx!==-1) used.add(idx);
+    const m = base ? Object.assign({}, base) : newModel(slot.role, slot.role==="Leader");
+    m.role = slot.role;
+    m.isGrunt = !!slot.isGrunt;
+    m.bonusTrait = !!slot.bonusTrait;
+    if(m.isGrunt && !m.sharedTrait && m.traits && m.traits.length) m.sharedTrait = m.traits[0];
+    if(!m.isGrunt && !m.traits) m.traits = m.sharedTrait ? [m.sharedTrait] : [];
+    if(!m.isGrunt && m.sharedTrait && !m.traits.length) m.traits = [m.sharedTrait];
+    return m;
+  });
+}
+
 /* ======================= RULES HELPERS ======================= */
 function baseCaps(m){
   if(m.role==="Leader") return {traits:3, slots:5};
   if(m.role==="Specialist") return {traits:2, slots:4};
-  return m.isGrunt ? {traits:1, slots:2} : {traits:1, slots:3};
+  const c = m.isGrunt ? {traits:1, slots:2} : {traits:1, slots:3};
+  if(m.bonusTrait) c.traits += 1;
+  return c;
 }
 function caps(m){
   const b = baseCaps(m);
@@ -802,7 +837,10 @@ function initTopbar(){
   crewTraitSelect.value = STATE.crewTrait;
   crewTraitSelect.addEventListener("change", e=>{
     STATE.crewTrait = e.target.value;
+    const isStructural = !!STRUCTURAL_SHAPES[STATE.crewTrait];
+    restructureModels(getRosterShape(STATE.crewTrait));
     render();
+    if(isStructural) setStatus(`"${STATE.crewTrait}" reshaped the roster to ${STATE.models.length} slots — existing model data was carried over by role where possible.`, 12000);
   });
 
   document.getElementById("btnPrint").addEventListener("click", openPrintableRoster);
@@ -818,6 +856,7 @@ function initTopbar(){
         traits: m.isGrunt ? (m.sharedTrait?[m.sharedTrait]:[]) : m.traits.slice(),
         negativeTrait: m.negTrait,
         traitTradeUsed: m.tradeSlot,
+        bonusTrait: m.bonusTrait,
         equipment: m.equip.map(n=>{ const it=EQUIPMENT.find(e=>e.n===n); return {name:n, slots: it?it.slots:0, category: it?it.cat:""}; }),
         slotsUsed: slotsUsed(m),
         slotsMax: caps(m).slots,
@@ -933,11 +972,11 @@ function buildPrintableHTML(){
 </body></html>`;
 }
 
-function setPrintStatus(msg){
+function setStatus(msg, duration){
   const status = document.getElementById("printStatus");
   if(!status) return;
   status.textContent = msg;
-  setTimeout(()=>{ if(status.textContent===msg) status.textContent=""; }, 8000);
+  setTimeout(()=>{ if(status.textContent===msg) status.textContent=""; }, duration || 8000);
 }
 
 function showTextModal(title, hint, filename, text){
@@ -988,9 +1027,9 @@ function openPrintableRoster(){
   try{ openedTab = window.open(url, "_blank"); }catch(err){ openedTab = null; }
 
   if(openedTab){
-    setPrintStatus("Opened in a new tab — press Ctrl/Cmd+P there.");
+    setStatus("Opened in a new tab — press Ctrl/Cmd+P there.");
   } else {
-    setPrintStatus("Popup blocked — showing the roster below instead.");
+    setStatus("Popup blocked — showing the roster below instead.");
     showTextModal(
       "Roster (popup was blocked)",
       "Your browser blocked the new tab. Copy the HTML below, paste it into a new file, save it, then open that file and print it.",
@@ -1012,14 +1051,17 @@ function importCrew(data){
     else m.traits = traitNames;
     m.negTrait = im.negativeTrait || null;
     m.tradeSlot = !!im.traitTradeUsed;
+    m.bonusTrait = !!im.bonusTrait;
     m.equip = (im.equipment||[]).map(eq=> typeof eq==="string" ? eq : eq.name);
     return m;
   });
-  while(models.length < 5) models.push(newModel("Regular"));
+  // Don't force a fixed count — structural Crew Traits (Heroes All, Special Ops,
+  // Horde, Above Average, Tactical) legitimately have 4, 5, or 7 models.
+  if(models.length===0) models.push(newModel("Regular"));
   STATE = {
     crewName: data.crewName || "Imported Crew",
     crewTrait: data.crewTrait || "— none —",
-    models: models.slice(0,5)
+    models
   };
   render();
   initTopbar();
