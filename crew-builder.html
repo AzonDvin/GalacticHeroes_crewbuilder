@@ -476,7 +476,7 @@ const EQUIPMENT = [
 /* ======================= STATE ======================= */
 function newModel(role, isLeader){
   return {
-    role, name:"", isGrunt:false, bonusTrait:false,
+    role, name:"", isGrunt:false, bonusTrait:false, bonusFromInspiring:false,
     traits: [],
     sharedTrait:null,
     negTrait:null, tradeSlot:false,
@@ -521,11 +521,36 @@ function restructureModels(shape){
     m.role = slot.role;
     m.isGrunt = !!slot.isGrunt;
     m.bonusTrait = !!slot.bonusTrait;
+    m.bonusFromInspiring = false; // recomputed fresh by syncInspiringBonus() after restructuring
     if(m.isGrunt && !m.sharedTrait && m.traits && m.traits.length) m.sharedTrait = m.traits[0];
     if(!m.isGrunt && !m.traits) m.traits = m.sharedTrait ? [m.sharedTrait] : [];
     if(!m.isGrunt && m.sharedTrait && !m.traits.length) m.traits = [m.sharedTrait];
     return m;
   });
+}
+function stripLeaderOnlyTraitsFromNonLeaders(){
+  const leaderOnlyNames = new Set(TRAITS.filter(t=>t.lo).map(t=>t.n));
+  STATE.models.forEach(m=>{
+    if(m.role==="Leader") return;
+    if(m.isGrunt){
+      if(m.sharedTrait && leaderOnlyNames.has(m.sharedTrait)) m.sharedTrait = null;
+    } else {
+      m.traits = m.traits.filter(n=>!leaderOnlyNames.has(n));
+    }
+  });
+}
+function syncInspiringBonus(){
+  const hasInspiring = STATE.models.some(m=> m.role==="Leader" && m.traits.includes("Inspiring"));
+  const bonusIdx = STATE.models.findIndex(m=>m.bonusFromInspiring);
+  if(hasInspiring && bonusIdx===-1){
+    const m = newModel("Regular");
+    m.bonusFromInspiring = true;
+    STATE.models.push(m);
+    setStatus("Leader has Inspiring — added a bonus Regular slot.", 8000);
+  } else if(!hasInspiring && bonusIdx!==-1){
+    STATE.models.splice(bonusIdx,1);
+    setStatus("Inspiring was removed — its bonus Regular slot was removed too.", 8000);
+  }
 }
 
 /* ======================= RULES HELPERS ======================= */
@@ -613,7 +638,8 @@ function renderModelCard(m, idx, open){
   const tCount = traitCount(m);
   const sUsed = slotsUsed(m);
   const dieText = qualityDie(m);
-  const roleLabel = m.role==="Regular" && m.isGrunt ? "Grunt Group (×3)" : m.role;
+  let roleLabel = m.role==="Regular" && m.isGrunt ? "Grunt Group (×3)" : m.role;
+  if(m.bonusFromInspiring) roleLabel += " · bonus from Inspiring";
   const grunt = m.role==="Regular" ? `<label class="grunt-toggle"><input type="checkbox" data-kind="isGrunt" ${m.isGrunt?'checked':''}> Grunt group</label>` : "";
   const traitFilterId = `tf-${idx}`, equipFilterId = `ef-${idx}`;
 
@@ -685,7 +711,8 @@ function previewCard(m, withEffects){
   const gearList = m.equip.length
     ? m.equip.map(n=>{ const it=EQUIPMENT.find(e=>e.n===n); return `<li><span>${n}</span><span>${it?it.slots:0} slot${it&&it.slots===1?'':'s'}</span></li>`; }).join("")
     : `<li class="p-empty">No equipment selected yet</li>`;
-  const label = m.role==="Regular" && m.isGrunt ? "Grunt Group (×3, share 1 card)" : m.role;
+  let label = m.role==="Regular" && m.isGrunt ? "Grunt Group (×3, share 1 card)" : m.role;
+  if(m.bonusFromInspiring) label += " · bonus from Inspiring";
   const wounds = woundCount(m);
   const traitsHtml = !tNames.length
     ? '<span class="p-empty">none picked</span>'
@@ -793,6 +820,7 @@ function bindEvents(){
           if(e.target.checked) m.traits.push(name);
           else m.traits = m.traits.filter(n=>n!==name);
         }
+        if(name==="Inspiring") syncInspiringBonus();
         render();
       });
     });
@@ -839,6 +867,8 @@ function initTopbar(){
     STATE.crewTrait = e.target.value;
     const isStructural = !!STRUCTURAL_SHAPES[STATE.crewTrait];
     restructureModels(getRosterShape(STATE.crewTrait));
+    stripLeaderOnlyTraitsFromNonLeaders();
+    syncInspiringBonus();
     render();
     if(isStructural) setStatus(`"${STATE.crewTrait}" reshaped the roster to ${STATE.models.length} slots — existing model data was carried over by role where possible.`, 12000);
   });
@@ -857,6 +887,7 @@ function initTopbar(){
         negativeTrait: m.negTrait,
         traitTradeUsed: m.tradeSlot,
         bonusTrait: m.bonusTrait,
+        bonusFromInspiring: m.bonusFromInspiring,
         equipment: m.equip.map(n=>{ const it=EQUIPMENT.find(e=>e.n===n); return {name:n, slots: it?it.slots:0, category: it?it.cat:""}; }),
         slotsUsed: slotsUsed(m),
         slotsMax: caps(m).slots,
@@ -1052,6 +1083,7 @@ function importCrew(data){
     m.negTrait = im.negativeTrait || null;
     m.tradeSlot = !!im.traitTradeUsed;
     m.bonusTrait = !!im.bonusTrait;
+    m.bonusFromInspiring = !!im.bonusFromInspiring;
     m.equip = (im.equipment||[]).map(eq=> typeof eq==="string" ? eq : eq.name);
     return m;
   });
@@ -1063,6 +1095,8 @@ function importCrew(data){
     crewTrait: data.crewTrait || "— none —",
     models
   };
+  stripLeaderOnlyTraitsFromNonLeaders();
+  syncInspiringBonus(); // self-heals older exports saved before this flag existed
   render();
   initTopbar();
 }
