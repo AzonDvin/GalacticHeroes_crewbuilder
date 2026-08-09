@@ -588,12 +588,15 @@ function allTraitNames(m){
   return arr;
 }
 function qualityDie(m){
-  if(m.isGrunt) return "d8";
   const t = allTraitNames(m);
+  const base = m.isGrunt ? "d8" : "d10";
   if(t.includes("Veteran")) return "d12 (all rolls)";
   if(t.includes("Green")) return "d8 (all rolls)";
+  // Brute: Close Combat die raised to d12 (d10 for Grunts); no ranged ability at all,
+  // so it takes priority over Ranged Fighter's Shoot die in the unlikely case both are picked.
+  if(t.includes("Brute")) return `${m.isGrunt ? "d10" : "d12"} CC / ${base} else`;
   if(t.includes("Ranged Fighter")) return "d12 Shoot / d8 CC";
-  return "d10";
+  return base;
 }
 function woundCount(m){
   const t = allTraitNames(m);
