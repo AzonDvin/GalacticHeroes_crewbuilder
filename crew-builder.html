@@ -266,6 +266,7 @@
   <button class="btn" id="btnImport">Import JSON</button>
   <input type="file" id="fileImport" accept="application/json">
   <button class="btn" id="btnExport">Export JSON</button>
+  <button class="btn" id="btnExportText" style="font-size:11px; padding:7px 8px;" title="If the download didn't work, show the JSON as copyable text instead">Show as text</button>
   <button class="btn primary" id="btnPrint">Open Roster in New Tab</button>
   <span id="printStatus" class="mono" style="font-size:11px;color:var(--ink-soft);"></span>
 </div>
@@ -882,7 +883,7 @@ function initTopbar(){
 
   document.getElementById("btnPrint").addEventListener("click", openPrintableRoster);
 
-  document.getElementById("btnExport").addEventListener("click", ()=>{
+  function buildCrewJSON(){
     const out = {
       crewName: STATE.crewName,
       crewTrait: STATE.crewTrait,
@@ -903,22 +904,34 @@ function initTopbar(){
         wounds: woundCount(m)
       }))
     };
-    const jsonText = JSON.stringify(out,null,2);
-    const filename = (STATE.crewName || "crew").toLowerCase().replace(/[^a-z0-9]+/g,"-") + ".json";
+    return JSON.stringify(out,null,2);
+  }
+  function crewJSONFilename(){
+    return (STATE.crewName || "crew").toLowerCase().replace(/[^a-z0-9]+/g,"-") + ".json";
+  }
+
+  document.getElementById("btnExport").addEventListener("click", ()=>{
+    const jsonText = buildCrewJSON();
+    const filename = crewJSONFilename();
     const blob = new Blob([jsonText], {type:"application/json"});
     const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    setStatus(`Downloading ${filename} — if nothing happened, click "Show as text" instead.`, 8000);
+  });
 
-    let openedTab = null;
-    try{ openedTab = window.open(url, "_blank"); }catch(err){ openedTab = null; }
-
-    if(!openedTab){
-      showTextModal(
-        "Crew JSON (popup was blocked)",
-        "Your browser blocked the new tab. Copy the JSON below and save it as a file yourself.",
-        filename,
-        jsonText
-      );
-    }
+  document.getElementById("btnExportText").addEventListener("click", ()=>{
+    showTextModal(
+      "Crew JSON",
+      "Copy this and save it as a file yourself.",
+      crewJSONFilename(),
+      buildCrewJSON()
+    );
   });
 
   document.getElementById("btnImport").addEventListener("click", ()=>document.getElementById("fileImport").click());
