@@ -860,7 +860,23 @@ function bindEvents(){
 }
 
 /* ======================= TOPBAR ======================= */
+// Keeps the Crew Name / Crew Trait fields in sync with STATE. Safe to call as
+// often as needed (e.g. after an import) — unlike initTopbar(), it never binds
+// event listeners, so it can't cause duplicate-handler bugs.
+function syncTopbarValues(){
+  const crewNameInput = document.getElementById("crewName");
+  if(crewNameInput) crewNameInput.value = STATE.crewName;
+  const crewTraitSelect = document.getElementById("crewTrait");
+  if(crewTraitSelect) crewTraitSelect.value = STATE.crewTrait;
+}
+
 function initTopbar(){
+  // Guard against ever being called more than once — this used to be called
+  // again after every Import, which silently stacked duplicate click handlers
+  // on the topbar buttons (e.g. Export JSON firing the download twice).
+  if(initTopbar._bound) { syncTopbarValues(); return; }
+  initTopbar._bound = true;
+
   const crewNameInput = document.getElementById("crewName");
   crewNameInput.value = STATE.crewName;
   crewNameInput.addEventListener("input", e=>{
@@ -1118,7 +1134,7 @@ function importCrew(data){
   stripLeaderOnlyTraitsFromNonLeaders();
   syncInspiringBonus(); // self-heals older exports saved before this flag existed
   render();
-  initTopbar();
+  syncTopbarValues();
 }
 
 /* ======================= BOOT ======================= */
