@@ -568,7 +568,13 @@ function caps(m){
   if(m.tradeSlot){ traits += 1; slots -= 2; }
   return {traits, slots};
 }
-function traitCount(m){ return m.isGrunt ? (m.sharedTrait?1:0) : m.traits.length; }
+function traitCount(m){
+  // Animal ("no shooting ability, so you may take an additional trait instead")
+  // doesn't cost one of the model's normal picks — it's excluded from the count
+  // so taking it never reduces how many other Traits the model can still choose.
+  if(m.isGrunt) return m.sharedTrait ? 1 : 0;
+  return m.traits.filter(n=>n!=="Animal").length;
+}
 function slotsUsed(m){ return m.equip.reduce((s,n)=>{
     const item = EQUIPMENT.find(e=>e.n===n);
     return s + (item ? item.slots : 0);
@@ -605,7 +611,8 @@ function chipClass(used, max){
 function traitRow(t, m, isNeg){
   const chosen = isNeg ? (m.negTrait===t.n) : (m.isGrunt ? m.sharedTrait===t.n : m.traits.includes(t.n));
   const capInfo = caps(m);
-  const atCap = isNeg ? false : (m.isGrunt ? (m.sharedTrait && !chosen) : (traitCount(m) >= capInfo.traits && !chosen));
+  const isFreeAnimalPick = !isNeg && !m.isGrunt && t.n==="Animal";
+  const atCap = isNeg || isFreeAnimalPick ? false : (m.isGrunt ? (m.sharedTrait && !chosen) : (traitCount(m) >= capInfo.traits && !chosen));
   const leaderLocked = t.lo && m.role!=="Leader";
   const disabled = (atCap || leaderLocked) && !chosen;
   return `<label class="pick-row ${disabled?'disabled':''}">
